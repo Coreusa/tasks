@@ -1,4 +1,5 @@
-# notes
+# Tasks
+A task board management utility. Saves tasks to local storage so items persist if you update your browser.
 
 ## Project setup
 ```
