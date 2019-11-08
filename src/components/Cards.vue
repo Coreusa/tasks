@@ -1,11 +1,27 @@
 <template>
   <div class="row no-gutters board">
     <div class="col-12">
-      <p><b-btn @click="addColumn()">Add column</b-btn></p>
+      <b-input-group size="sm">
+        <template v-slot:append>
+          <b-input-group-text>
+            <strong
+              :class="searchCount > 0 ? 'text-info' : 'text-danger'">
+              {{ searchCount !== null ? `Found ${searchCount} results` : '' }}
+            </strong>
+          </b-input-group-text>
+        </template>
+        <b-form-input
+          v-model="searchTerm"
+          placeholder="Find..."
+        >
+        </b-form-input>
+      </b-input-group>
+      <b-btn @click="addColumn()">New column</b-btn>
     </div>
     <draggable
       v-model="columns"
       v-bind="dragOptions"
+      @end="saveBoard($event)"
       class="d-flex"
       ghost-class="ghost"
     >
@@ -16,7 +32,7 @@
         class="column col mr-2 p-0"
       >
         <b-card-header
-          @click="column.edit = true"
+          @click="chooseNode(column, true)"
           class="d-flex p-1 py-2 align-items-center pl-3"
         >
           <b-input-group
@@ -27,7 +43,7 @@
             <b-input-group-append>
               <b-button
                 variant="success"
-                @click.stop="column.edit = false"
+                @click.stop="chooseNode(column, false)"
               >
                 Ok
               </b-button>
@@ -54,10 +70,15 @@
           <b-btn
             @click="addCard(ci)"
             variant="info"
+            class="my-2"
             size="sm"
+            block
           >
+            New card
             <font-awesome-icon
               icon="plus"
+              class="ml-2"
+              size="sm"
             >
             </font-awesome-icon>
           </b-btn>
@@ -66,6 +87,8 @@
         <draggable
           v-model="columns[ci].cards"
           v-bind="dragOptions"
+          @end="saveBoard($event)"
+
           group="cards"
           class="dropzone"
         >
@@ -75,7 +98,7 @@
             class="d-flex"
           >
             <b-card
-              @click="card.edit = true"
+              @click="chooseNode(card, true)"
               class="task w-100 mb-1 mx-1"
               no-body
             >
@@ -112,7 +135,7 @@
                 v-if="card.edit"
                 variant="default"
                 size="sm"
-                @click.stop="card.edit = false"
+                @click.stop="chooseNode(card, false)"
               >
                 <font-awesome-icon
                   :icon="card.edit ? 'check' : 'pencil-alt'"
@@ -136,6 +159,9 @@ export default {
   },
   data () {
     return {
+      searchTerm: '',
+      searchCount: null,
+      editMode: false,
       columns: [
         {
           name: 'Column',
@@ -147,20 +173,56 @@ export default {
   },
   watch: {
     columns () {
-      console.log('Change')
-      this.$store.dispatch('saveBoard', this.columns)
+      // this.$store.dispatch('saveBoard', this.columns)
+    },
+    searchTerm () {
+      if (this.searchTerm.length > 2) {
+        let searchCount = 0
+        let term = this.searchTerm.toLowerCase()
+        let matches = this.columns
+          .filter(e => {
+            if (e.cards) {
+              return e.cards.some(c => c.header.toLowerCase().includes(term))
+            }
+          })
+          .map(e => {
+            const el = Object.assign({}, e)
+            // Filter the columns card list to only include the cards that match
+            if (el.cards) {
+              el.cards = el.cards.filter(s => s.header.toLowerCase().includes(term))
+              searchCount += el.cards.length
+            }
+            return el
+          })
+        if (matches.length) {
+          this.searchCount = searchCount
+          this.columns = matches
+        } else {
+          this.searchCount = 0
+        }
+      } else {
+        this.searchCount = null
+        this.columns = this.$store.getters.board
+      }
     }
   },
   mounted () {
     this.columns = this.$store.getters.board
+    // this.originalColumns = this.$store.getters.board
   },
   computed: {
     dragOptions () {
       return {
         animation: 100,
-        disabled: false
+        // Disable sorting when edit is
+        disabled: this.editMode
       }
     }
+    // editInitiated () {
+    //   const res = this.columns.some(e => e.edit === true)
+    //   console.log('EDIT INIT: ' + res)
+    //   return res
+    // }
   },
   methods: {
     addColumn () {
@@ -169,6 +231,18 @@ export default {
         edit: false,
         cards: []
       })
+    },
+    chooseNode (column, bool) {
+      column.edit = bool
+      this.editMode = bool
+      // Set to false when a save happens (edit mode off)
+      if (bool === false) {
+        this.$store.dispatch('saveBoard', this.columns)
+      }
+    },
+    saveBoard (e) {
+      console.log('Save board')
+      this.$store.dispatch('saveBoard', this.columns)
     },
     removeColumn (index) {
       this.columns.splice(index, 1)

@@ -7,7 +7,7 @@ Vue.use(Vuex)
 export default new Vuex.Store({
   plugins: [createPersistedState(
     {
-      key: 'notes',
+      key: 'taskboard',
       paths: [
         'board'
       ]
